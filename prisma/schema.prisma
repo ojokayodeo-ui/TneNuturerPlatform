@@ -391,7 +391,7 @@ enum CheckInStatus {
 model Integration {
   id          String   @id @default(cuid())
   tenantId    String
-  type        String   // "instantly", "apollo", "gmail", "hubspot", "salesforce", "zapier"
+  type        String   // "gmail", "outlook", "hubspot", "salesforce", "zapier", "webhook"
   status      String   @default("disconnected") // connected, disconnected, error
   config      Json?    // API keys, settings (encrypted in prod)
   lastSyncAt  DateTime?
