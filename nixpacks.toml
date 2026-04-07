@@ -8,4 +8,4 @@ cmds = ["npm install"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "npx prisma migrate deploy 2>/dev/null || true && npm start"
+cmd = "npm start"
