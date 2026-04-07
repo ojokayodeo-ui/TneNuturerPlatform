@@ -6,6 +6,7 @@ import AppShell from '@/components/layout/app-shell';
 import { ContactsTable } from '@/components/contacts/contacts-table';
 import { ContactFilters } from '@/components/contacts/contact-filters';
 import { AddContactModal } from '@/components/contacts/add-contact-modal';
+import { CsvImportModal } from '@/components/contacts/csv-import-modal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useNurtureStore } from '@/lib/store';
@@ -13,6 +14,7 @@ import { useNurtureStore } from '@/lib/store';
 export default function ContactsPage() {
   const { contacts, searchQuery, setSearchQuery } = useNurtureStore();
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
 
   return (
     <AppShell>
@@ -29,7 +31,7 @@ export default function ContactsPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => {}}
+              onClick={() => setCsvModalOpen(true)}
               className="gap-1.5"
             >
               <Upload className="h-3.5 w-3.5" />
@@ -71,11 +73,8 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Add contact modal */}
-      <AddContactModal
-        open={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
-      />
+      <AddContactModal open={addModalOpen} onClose={() => setAddModalOpen(false)} />
+      <CsvImportModal open={csvModalOpen} onClose={() => setCsvModalOpen(false)} />
     </AppShell>
   );
 }
