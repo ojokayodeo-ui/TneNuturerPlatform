@@ -1,0 +1,404 @@
+// This is your Prisma schema file
+// Multi-tenant SaaS: Client Nurture OS
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// MULTI-TENANCY
+// ─────────────────────────────────────────────
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  plan        String   @default("starter") // starter, pro, enterprise
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  contacts    Contact[]
+  sequences   Sequence[]
+  campaigns   Campaign[]
+  tags        Tag[]
+  integrations Integration[]
+}
+
+// ─────────────────────────────────────────────
+// USERS & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String
+  avatar    String?
+  role      UserRole @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts  Contact[] @relation("AssignedContacts")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// ─────────────────────────────────────────────
+// CONTACTS (CRM Core)
+// ─────────────────────────────────────────────
+
+model Contact {
+  id              String        @id @default(cuid())
+  tenantId        String
+  name            String
+  email           String
+  company         String
+  website         String?
+  phone           String?
+  source          ContactSource @default(COLD)
+  stage           ContactStage  @default(NEW_LEAD)
+  industry        String?
+  jobTitle        String?
+  linkedinUrl     String?
+  engagementScore Int           @default(0)  // 0-100
+  healthScore     Int           @default(0)  // 0-100
+  lastContactedAt DateTime?
+  isClient        Boolean       @default(false)
+  contractValue   Float?
+  ltv             Float?
+  notes           String?
+  assignedToId    String?
+  sequenceId      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedTo       User?             @relation("AssignedContacts", fields: [assignedToId], references: [id])
+  interactions     Interaction[]
+  contactTags      ContactTag[]
+  enrollments      SequenceEnrollment[]
+  insights         AIInsight[]
+  checkIns         ClientCheckIn[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([stage])
+  @@index([source])
+}
+
+enum ContactSource {
+  COLD
+  WARM
+  REFERRAL
+  WEBSITE
+  INBOUND
+}
+
+enum ContactStage {
+  NEW_LEAD
+  CONTACTED
+  ENGAGED
+  NURTURING
+  SALES_QUALIFIED
+  CLIENT
+  RETAINED
+}
+
+// ─────────────────────────────────────────────
+// TAGS & SEGMENTATION
+// ─────────────────────────────────────────────
+
+model Tag {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+  color    String @default("#6366F1")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactTags ContactTag[]
+
+  @@unique([tenantId, name])
+}
+
+model ContactTag {
+  contactId String
+  tagId     String
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+}
+
+// ─────────────────────────────────────────────
+// INTERACTIONS (Activity History)
+// ─────────────────────────────────────────────
+
+model Interaction {
+  id        String              @id @default(cuid())
+  contactId String
+  type      InteractionType
+  direction InteractionDirection @default(OUTBOUND)
+  subject   String?
+  body      String?
+  sentAt    DateTime            @default(now())
+  opened    Boolean             @default(false)
+  clicked   Boolean             @default(false)
+  replied   Boolean             @default(false)
+  metadata  Json?
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([sentAt])
+}
+
+enum InteractionType {
+  EMAIL_SENT
+  EMAIL_RECEIVED
+  CALL
+  MEETING
+  NOTE
+  STAGE_CHANGE
+  SEQUENCE_ENROLLED
+  LINKEDIN_MESSAGE
+  SMS
+}
+
+enum InteractionDirection {
+  INBOUND
+  OUTBOUND
+}
+
+// ─────────────────────────────────────────────
+// SEQUENCES (Nurture Automation)
+// ─────────────────────────────────────────────
+
+model Sequence {
+  id          String         @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  type        SequenceType   @default(COLD_OUTREACH)
+  status      SequenceStatus @default(DRAFT)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  steps       SequenceStep[]
+  enrollments SequenceEnrollment[]
+  campaigns   Campaign[]
+
+  @@index([tenantId])
+}
+
+enum SequenceType {
+  COLD_OUTREACH
+  WARM_NURTURE
+  CLIENT_ONBOARDING
+  RETENTION
+  UPSELL
+}
+
+enum SequenceStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+model SequenceStep {
+  id           String   @id @default(cuid())
+  sequenceId   String
+  order        Int
+  type         StepType @default(EMAIL)
+  subject      String?
+  body         String?
+  delayDays    Int      @default(0)
+  delayHours   Int      @default(0)
+  condition    String?  // e.g. "if_not_replied", "if_opened"
+  createdAt    DateTime @default(now())
+
+  sequence Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@index([sequenceId])
+  @@index([order])
+}
+
+enum StepType {
+  EMAIL
+  LINKEDIN
+  SMS
+  TASK
+  WAIT
+}
+
+model SequenceEnrollment {
+  id           String           @id @default(cuid())
+  sequenceId   String
+  contactId    String
+  currentStep  Int              @default(0)
+  status       EnrollmentStatus @default(ACTIVE)
+  enrolledAt   DateTime         @default(now())
+  completedAt  DateTime?
+  nextSendAt   DateTime?
+
+  sequence Sequence @relation(fields: [sequenceId], references: [id])
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([sequenceId, contactId])
+  @@index([contactId])
+  @@index([nextSendAt])
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  REPLIED
+  UNSUBSCRIBED
+}
+
+// ─────────────────────────────────────────────
+// CAMPAIGNS
+// ─────────────────────────────────────────────
+
+model Campaign {
+  id              String         @id @default(cuid())
+  tenantId        String
+  name            String
+  type            CampaignType   @default(EMAIL)
+  status          CampaignStatus @default(DRAFT)
+  sequenceId      String?
+  audienceCount   Int            @default(0)
+  openRate        Float          @default(0)
+  clickRate       Float          @default(0)
+  replyRate       Float          @default(0)
+  conversionRate  Float          @default(0)
+  startDate       DateTime?
+  endDate         DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sequence   Sequence?   @relation(fields: [sequenceId], references: [id])
+  abVariants ABVariant[]
+
+  @@index([tenantId])
+}
+
+enum CampaignType {
+  EMAIL
+  SEQUENCE
+  LINKEDIN
+  SMS
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+model ABVariant {
+  id         String   @id @default(cuid())
+  campaignId String
+  name       String
+  subject    String
+  body       String
+  openRate   Float    @default(0)
+  clickRate  Float    @default(0)
+  replyRate  Float    @default(0)
+  audience   Int      @default(0)
+  isWinner   Boolean  @default(false)
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// AI INSIGHTS
+// ─────────────────────────────────────────────
+
+model AIInsight {
+  id             String        @id @default(cuid())
+  contactId      String
+  type           InsightType
+  confidence     Float         // 0-1
+  recommendation String
+  signalStrength Float?        // 0-1
+  isActioned     Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  expiresAt      DateTime?
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([type])
+}
+
+enum InsightType {
+  READY_TO_BUY
+  COLD_REENGAGEMENT
+  UPSELL_OPPORTUNITY
+  CHURN_RISK
+}
+
+// ─────────────────────────────────────────────
+// RETENTION (Client Health)
+// ─────────────────────────────────────────────
+
+model ClientCheckIn {
+  id          String      @id @default(cuid())
+  contactId   String
+  scheduledAt DateTime
+  completedAt DateTime?
+  status      CheckInStatus @default(SCHEDULED)
+  notes       String?
+  satisfaction Int?        // 1-10
+  createdAt   DateTime    @default(now())
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([scheduledAt])
+}
+
+enum CheckInStatus {
+  SCHEDULED
+  COMPLETED
+  MISSED
+  RESCHEDULED
+}
+
+// ─────────────────────────────────────────────
+// INTEGRATIONS
+// ─────────────────────────────────────────────
+
+model Integration {
+  id          String   @id @default(cuid())
+  tenantId    String
+  type        String   // "instantly", "apollo", "gmail", "hubspot", "salesforce", "zapier"
+  status      String   @default("disconnected") // connected, disconnected, error
+  config      Json?    // API keys, settings (encrypted in prod)
+  lastSyncAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type])
+}
