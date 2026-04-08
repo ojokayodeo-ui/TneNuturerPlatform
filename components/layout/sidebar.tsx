@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, Kanban, Zap, BarChart3,
-  Brain, Heart, Settings, ChevronLeft, ChevronRight,
+  Brain, Heart, Settings, ChevronLeft, ChevronRight, Bot,
 } from 'lucide-react';
 import { useNurtureStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,8 @@ const NAV_ITEMS = [
   { label: 'Campaigns',   href: '/campaigns',    icon: BarChart3 },
   { label: 'AI Insights', href: '/ai-insights',  icon: Brain },
   { label: 'Retention',   href: '/retention',    icon: Heart },
-];
+  { label: 'AI Agent',    href: '/ai-agent',     icon: Bot,  badge: 'New' },
+] as const;
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -53,7 +54,8 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
-        {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+        {NAV_ITEMS.map(({ label, href, icon: Icon, ...rest }) => {
+          const badge = 'badge' in rest ? (rest as { badge?: string }).badge : undefined;
           const isActive = pathname === href || pathname.startsWith(href + '/');
           return (
             <Link
@@ -69,7 +71,16 @@ export default function Sidebar() {
               )}
             >
               <Icon size={18} className={cn('shrink-0', isActive ? 'text-indigo-400' : 'text-[#64748B] group-hover:text-[#F1F5F9]')} />
-              {!collapsed && label}
+              {!collapsed && (
+                <span className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="truncate">{label}</span>
+                  {badge && (
+                    <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                      {badge}
+                    </span>
+                  )}
+                </span>
+              )}
             </Link>
           );
         })}

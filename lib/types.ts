@@ -167,3 +167,65 @@ export interface DashboardMetrics {
   monthlyConversions: number;
   totalLTV: number;
 }
+
+// ── AI Agent Types ────────────────────────────────────────────────────────────
+
+export type KnowledgeBaseItemType =
+  | 'swipe_file'
+  | 'email_template'
+  | 'strategy'
+  | 'case_study'
+  | 'hook_library'
+  | 'custom';
+
+export interface KnowledgeBaseItem {
+  id: string;
+  type: KnowledgeBaseItemType;
+  title: string;
+  content: string;
+  url?: string;
+  tags: string[];
+  createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+export type LeadTemperatureLabel =
+  | 'Ice Cold'
+  | 'Cold'
+  | 'Warming'
+  | 'Hot'
+  | 'Raging Fan';
+
+export interface LeadAnalysis {
+  contactId: string;
+  contactName: string;
+  temperature: number;
+  temperatureLabel: LeadTemperatureLabel;
+  temperatureEmoji: string;
+  insights: string[];
+  recommendedActions: string[];
+  personalizedHook: string;
+  analyzedAt: string;
+}
+
+export interface GeneratedEmailStep {
+  step: number;
+  name: string;
+  subject: string;
+  body: string;
+  delayDays: number;
+  goal: string;
+}
+
+export interface GeneratedSequence {
+  name: string;
+  description: string;
+  targetJourney: string;
+  emails: GeneratedEmailStep[];
+}
