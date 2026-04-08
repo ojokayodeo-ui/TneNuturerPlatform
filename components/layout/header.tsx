@@ -23,7 +23,7 @@ export default function Header() {
   const pageName = getPageName(pathname);
 
   return (
-    <header className="fixed top-0 left-64 right-0 h-16 bg-[#1A1D27] border-b border-[#2A2D3E] flex items-center px-6 gap-4 z-30">
+    <header className="sticky top-0 h-16 bg-[#1A1D27] border-b border-[#2A2D3E] flex items-center px-6 gap-4 z-30 shrink-0">
       {/* Left: Breadcrumb */}
       <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
         <span className="text-[#64748B] text-sm">Home</span>
